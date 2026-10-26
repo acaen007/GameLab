@@ -1,0 +1,17 @@
+{
+  "name": "game-lab",
+  "version": "1.0.0",
+  "description": "Browser app for zero-sum games: learning dynamics in normal-form games, and strategy portfolios in Kuhn and Leduc poker (no dependencies).",
+  "private": true,
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "tests": "npm test",
+    "example": "node example.js",
+    "presets": "node scripts/write-presets.js",
+    "serve": "node scripts/serve.js"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

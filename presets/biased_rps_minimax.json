@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "name": "Biased rock–paper–scissors — UCB1 vs minimax",
+  "description": "An asymmetric RPS variant. Player 2 plays its LP minimax strategy, so player 1 cannot earn more than the game value in expectation.",
+  "game": {
+    "rows": [
+      "Rock",
+      "Paper",
+      "Scissors"
+    ],
+    "cols": [
+      "Rock",
+      "Paper",
+      "Scissors"
+    ],
+    "payoff": [
+      [
+        0,
+        -2,
+        1
+      ],
+      [
+        2,
+        0,
+        -1
+      ],
+      [
+        -1,
+        1,
+        0
+      ]
+    ]
+  },
+  "players": [
+    {
+      "kind": "ucb1",
+      "action": 0,
+      "mixture": [],
+      "pool": {
+        "strategies": [],
+        "weights": []
+      },
+      "feedback": "reward-only",
+      "binarize": false,
+      "seed": null,
+      "ucb": {
+        "c": 2,
+        "initOrder": "random"
+      },
+      "ucbv": {
+        "zeta": 1.2,
+        "c": 1,
+        "initOrder": "random"
+      },
+      "exp3": {
+        "gamma": null,
+        "initialWeights": null
+      },
+      "hedge": {
+        "eta": null,
+        "initialWeights": null
+      },
+      "thompson": {
+        "alpha": 1,
+        "beta": 1
+      }
+    },
+    {
+      "kind": "minimax",
+      "action": 0,
+      "mixture": [],
+      "pool": {
+        "strategies": [],
+        "weights": []
+      },
+      "feedback": "reward-only",
+      "binarize": false,
+      "seed": null,
+      "ucb": {
+        "c": 2,
+        "initOrder": "random"
+      },
+      "ucbv": {
+        "zeta": 1.2,
+        "c": 1,
+        "initOrder": "random"
+      },
+      "exp3": {
+        "gamma": null,
+        "initialWeights": null
+      },
+      "hedge": {
+        "eta": null,
+        "initialWeights": null
+      },
+      "thompson": {
+        "alpha": 1,
+        "beta": 1
+      }
+    }
+  ],
+  "sim": {
+    "horizon": 1000,
+    "repetitions": 30,
+    "seed": 2024,
+    "switchRound": 250,
+    "epsilon": 0.05,
+    "rollingWindow": 50,
+    "deployment": "configured"
+  }
+}

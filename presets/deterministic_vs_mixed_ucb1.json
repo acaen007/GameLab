@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "name": "Deterministic vs mixed rewards — UCB1",
+  "description": "Player 1 runs UCB1 with reward-only feedback. Use Compare deployments to run the four player-2 deployments with common random numbers.",
+  "game": {
+    "rows": [
+      "A",
+      "B"
+    ],
+    "cols": [
+      "S1",
+      "S2",
+      "S3"
+    ],
+    "payoff": [
+      [
+        0.55,
+        1,
+        0
+      ],
+      [
+        0.45,
+        0,
+        1
+      ]
+    ]
+  },
+  "players": [
+    {
+      "kind": "ucb1",
+      "action": 0,
+      "mixture": [],
+      "pool": {
+        "strategies": [],
+        "weights": []
+      },
+      "feedback": "reward-only",
+      "binarize": false,
+      "seed": null,
+      "ucb": {
+        "c": 2,
+        "initOrder": "random"
+      },
+      "ucbv": {
+        "zeta": 1.2,
+        "c": 1,
+        "initOrder": "random"
+      },
+      "exp3": {
+        "gamma": null,
+        "initialWeights": null
+      },
+      "hedge": {
+        "eta": null,
+        "initialWeights": null
+      },
+      "thompson": {
+        "alpha": 1,
+        "beta": 1
+      }
+    },
+    {
+      "kind": "pure",
+      "action": 0,
+      "mixture": [],
+      "pool": {
+        "strategies": [],
+        "weights": []
+      },
+      "feedback": "reward-only",
+      "binarize": false,
+      "seed": null,
+      "ucb": {
+        "c": 2,
+        "initOrder": "random"
+      },
+      "ucbv": {
+        "zeta": 1.2,
+        "c": 1,
+        "initOrder": "random"
+      },
+      "exp3": {
+        "gamma": null,
+        "initialWeights": null
+      },
+      "hedge": {
+        "eta": null,
+        "initialWeights": null
+      },
+      "thompson": {
+        "alpha": 1,
+        "beta": 1
+      }
+    }
+  ],
+  "sim": {
+    "horizon": 500,
+    "repetitions": 50,
+    "seed": 2024,
+    "switchRound": 250,
+    "epsilon": 0.05,
+    "rollingWindow": 50,
+    "deployment": "configured"
+  }
+}

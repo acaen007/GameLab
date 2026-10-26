@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "name": "Rock–paper–scissors — Hedge vs EXP3",
+  "description": "Both players learn. Hedge uses full information; EXP3 uses reward-only feedback. Payoffs in [−1, 1] are normalized affinely to [0, 1].",
+  "game": {
+    "rows": [
+      "Rock",
+      "Paper",
+      "Scissors"
+    ],
+    "cols": [
+      "Rock",
+      "Paper",
+      "Scissors"
+    ],
+    "payoff": [
+      [
+        0,
+        -1,
+        1
+      ],
+      [
+        1,
+        0,
+        -1
+      ],
+      [
+        -1,
+        1,
+        0
+      ]
+    ]
+  },
+  "players": [
+    {
+      "kind": "hedge",
+      "action": 0,
+      "mixture": [],
+      "pool": {
+        "strategies": [],
+        "weights": []
+      },
+      "feedback": "full-information",
+      "binarize": false,
+      "seed": null,
+      "ucb": {
+        "c": 2,
+        "initOrder": "random"
+      },
+      "ucbv": {
+        "zeta": 1.2,
+        "c": 1,
+        "initOrder": "random"
+      },
+      "exp3": {
+        "gamma": null,
+        "initialWeights": null
+      },
+      "hedge": {
+        "eta": null,
+        "initialWeights": null
+      },
+      "thompson": {
+        "alpha": 1,
+        "beta": 1
+      }
+    },
+    {
+      "kind": "exp3",
+      "action": 0,
+      "mixture": [],
+      "pool": {
+        "strategies": [],
+        "weights": []
+      },
+      "feedback": "reward-only",
+      "binarize": false,
+      "seed": 7,
+      "ucb": {
+        "c": 2,
+        "initOrder": "random"
+      },
+      "ucbv": {
+        "zeta": 1.2,
+        "c": 1,
+        "initOrder": "random"
+      },
+      "exp3": {
+        "gamma": null,
+        "initialWeights": null
+      },
+      "hedge": {
+        "eta": null,
+        "initialWeights": null
+      },
+      "thompson": {
+        "alpha": 1,
+        "beta": 1
+      }
+    }
+  ],
+  "sim": {
+    "horizon": 2000,
+    "repetitions": 30,
+    "seed": 2024,
+    "switchRound": 250,
+    "epsilon": 0.05,
+    "rollingWindow": 50,
+    "deployment": "configured"
+  }
+}

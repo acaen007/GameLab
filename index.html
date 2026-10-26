@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'">
+  <title>Game Lab</title>
+  <link rel="stylesheet" href="styles.css?v=11">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-area">
+      <div class="brand">Game Lab</div>
+      <div class="segmented game-switch" role="radiogroup" aria-label="Game">
+        <label title="Two-player zero-sum matrix games with learning algorithms"><input type="radio" name="game" value="normal" checked>Normal-form</label>
+        <label title="Kuhn poker"><input type="radio" name="game" value="kuhn">Kuhn</label>
+        <label title="Leduc poker"><input type="radio" name="game" value="leduc">Leduc</label>
+      </div>
+    </div>
+    <nav class="views" id="nf-nav" role="tablist" aria-label="Views">
+      <button type="button" role="tab" id="nav-setup" data-view="setup"><span class="num">1</span>Set up</button>
+      <button type="button" role="tab" id="nav-run" data-view="run"><span class="num">2</span>Run &amp; results</button>
+      <button type="button" role="tab" id="nav-saved" data-view="saved"><span class="num">3</span>Saved runs <span id="saved-count" class="count"></span></button>
+    </nav>
+    <div></div>
+  </header>
+
+  <div id="fatal" class="fatal" hidden></div>
+
+  <!-- 1. Set up -->
+  <main id="view-setup" class="view">
+    <div class="page">
+      <div class="toolbar">
+        <label class="inline">Start from
+          <select id="preset-select" aria-label="Built-in preset"></select>
+        </label>
+        <button id="load-preset" type="button" class="small">Load</button>
+        <span class="spacer"></span>
+        <button id="load-json" type="button" class="small ghost">Open JSON…</button>
+        <input id="file-input" type="file" accept=".json,application/json" hidden>
+        <button id="save-json" type="button" class="small ghost">Save JSON</button>
+      </div>
+
+      <div class="setup-grid">
+        <section class="card" id="game-card">
+          <div class="card-head">
+            <h2>Payoff matrix</h2>
+            <span class="sub">Player 1's payoff · Player 2 receives the negative</span>
+          </div>
+          <div class="matrix-wrap"><table id="matrix" class="matrix edit"></table></div>
+          <div class="matrix-actions">
+            <button id="add-row" type="button" class="ghost small">+ Row</button>
+            <button id="add-col" type="button" class="ghost small">+ Column</button>
+          </div>
+          <p id="strategy-hint" class="hint"></p>
+          <div id="minimax" class="equilibrium"></div>
+          <details class="preset-tools" id="preset-tools"></details>
+        </section>
+
+        <div class="players">
+          <section class="card player-card p1" id="player-0"></section>
+          <section class="card player-card p2" id="player-1"></section>
+        </div>
+      </div>
+    </div>
+
+    <footer class="setup-footer">
+      <div class="page footer-inner">
+        <ul id="setup-errors" class="errors"></ul>
+        <span id="setup-ok" class="ok">✓ Ready to run</span>
+        <button type="button" class="primary" id="go-run">Continue to Run →</button>
+      </div>
+    </footer>
+  </main>
+
+  <!-- 2. Run & results -->
+  <main id="view-run" class="view" hidden>
+    <div class="page">
+      <section class="card run-bar" id="sim-card">
+        <div class="run-head">
+          <div class="config-line"><span id="config-summary"></span><button type="button" class="link" id="edit-setup">Edit</button></div>
+          <div class="segmented" role="radiogroup" aria-label="Mode">
+            <label><input type="radio" name="mode" value="single" checked>Single run</label>
+            <label><input type="radio" name="mode" value="mc">Monte Carlo</label>
+          </div>
+        </div>
+
+        <div class="run-row">
+          <button id="btn-play" type="button" class="primary single-only">▶ Play</button>
+          <button id="btn-pause" type="button" class="primary single-only" hidden>❚❚ Pause</button>
+          <button id="btn-step" type="button" class="single-only">Step</button>
+          <button id="btn-fast" type="button" class="single-only">Run to end</button>
+          <label class="inline speed single-only" title="Playback speed">Speed <input id="speed" type="range" min="0" max="100" value="45" aria-label="Playback speed"> <span id="speed-label" class="sub"></span></label>
+          <button id="btn-run-mc" type="button" class="primary mc-only">Run Monte Carlo</button>
+          <button id="btn-cancel" type="button" hidden>Cancel</button>
+          <span class="spacer"></span>
+          <button id="btn-compare" type="button">Compare 4 deployments</button>
+          <button id="btn-reset" type="button" class="ghost">Reset</button>
+        </div>
+
+        <div class="run-row settings">
+          <label class="mini" title="Number of rounds">Rounds T <input id="sim-horizon" type="text" inputmode="numeric"></label>
+          <label class="mini mc-only" title="Independent repetitions">Repetitions <input id="sim-reps" type="text" inputmode="numeric"></label>
+          <label class="mini" title="Master seed">Seed <input id="sim-seed" type="text" inputmode="numeric"></label>
+          <label class="mini single-only" title="The single run equals repetition r of a Monte Carlo run with the same seed">Repetition # <input id="sim-rep-index" type="text" inputmode="numeric"></label>
+          <label class="mini" title="Rolling-payoff window">Window <input id="sim-window" type="text" inputmode="numeric"></label>
+          <label class="mini" id="switch-field" title="Switching round for the mix→S1 and S1→mix deployments">Switch N <input id="sim-switch" type="text" inputmode="numeric"></label>
+        </div>
+
+        <div class="progress-row">
+          <progress id="progress" max="1" value="0"></progress>
+          <span id="progress-label" class="sub"></span>
+        </div>
+        <div id="stale" class="notice warn" hidden>The setup changed since these results were produced. Press Play or Run again to use it.</div>
+        <ul id="errors" class="errors" aria-live="polite"></ul>
+      </section>
+
+      <div class="run-grid">
+        <section class="card live-card">
+          <div class="card-head"><h2>Live round</h2><span id="round-title" class="sub"></span></div>
+          <div class="live-body">
+            <div class="matrix-wrap"><table id="live-matrix" class="matrix live"></table></div>
+            <div id="round-panel" class="round-panel"></div>
+          </div>
+        </section>
+
+        <div class="results-col">
+          <section class="card empty-state" id="empty-results">
+            <h2>No results yet</h2>
+            <ul>
+              <li><b>Play</b> or <b>Step</b> to watch one match round by round.</li>
+              <li><b>Run to end</b> to finish the match at once.</li>
+              <li><b>Monte Carlo</b> mode repeats the match and adds 95% confidence intervals.</li>
+              <li id="empty-compare"><b>Compare 4 deployments</b> runs the preset's four Player 2 deployments side by side.</li>
+              <li>Every finished run is saved under <b>Saved runs</b> and overlaid on these charts for comparison.</li>
+            </ul>
+          </section>
+
+          <section class="card" id="plots-card" hidden>
+            <div class="tabs" role="tablist" id="tabs"></div>
+            <div class="plot-toolbar">
+              <label class="inline" id="ctl-player">Player
+                <select id="plot-player"><option value="0">Player 1</option><option value="1">Player 2</option></select>
+              </label>
+              <label class="inline" id="ctl-arm"><span id="ctl-arm-label">Deployment</span>
+                <select id="plot-arm"></select>
+              </label>
+              <label class="inline" id="ctl-baseline">Baseline
+                <select id="plot-baseline"></select>
+              </label>
+              <label class="inline" id="ctl-metric">Metric
+                <select id="plot-metric"></select>
+              </label>
+              <span class="spacer"></span>
+              <span class="overlay-info" id="overlay-info" hidden><span id="overlay-text"></span><button type="button" class="link" id="overlay-manage">Manage</button></span>
+              <button id="export-png" type="button" class="small ghost">PNG</button>
+              <button id="export-csv" type="button" class="small ghost">CSV</button>
+            </div>
+            <div id="plot-note" class="hint"></div>
+            <div id="plots" class="plots"></div>
+          </section>
+
+          <section class="card" id="summary-card" hidden>
+            <div class="card-head"><h2>Summary</h2><span id="summary-sub" class="sub"></span></div>
+            <div class="table-wrap"><table id="summary" class="summary"></table></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 3. Saved runs -->
+  <main id="view-saved" class="view" hidden>
+    <div class="page">
+      <div class="toolbar">
+        <h2>Saved runs</h2>
+        <span id="saved-sub" class="sub"></span>
+        <span class="spacer"></span>
+        <button id="saved-show-all" type="button" class="small ghost">Show all</button>
+        <button id="saved-hide-all" type="button" class="small ghost">Hide all</button>
+        <button id="saved-clear" type="button" class="small ghost danger">Delete all</button>
+        <button id="saved-open-charts" type="button" class="small primary">Open charts →</button>
+      </div>
+      <div id="saved-notice" class="notice warn" hidden></div>
+
+      <section class="card empty-state" id="saved-empty">
+        <h2>No saved runs yet</h2>
+        <ul>
+          <li>Every run that finishes is saved here automatically: single runs, Monte Carlo runs and each deployment of a comparison.</li>
+          <li>Ticked runs are drawn on the charts in <b>Run &amp; results</b>, next to the current run, and added to its summary table.</li>
+          <li>Saved runs stay in this browser after you close the page.</li>
+        </ul>
+      </section>
+
+      <section class="card saved-card" id="saved-card" hidden>
+        <p class="hint first">Every finished run is saved automatically. Tick a run to overlay it on the charts; click a name to rename it.</p>
+        <div class="table-wrap"><table id="saved-table" class="saved-table"></table></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Kuhn / Leduc poker -->
+  <main id="view-poker" class="view" hidden>
+    <div class="page">
+      <div class="poker-head">
+        <h1 id="poker-title"></h1>
+        <p id="poker-rules" class="rules"></p>
+      </div>
+
+      <div class="portfolio-grid">
+        <section class="card portfolio p1" id="portfolio-0"></section>
+        <section class="card portfolio p2" id="portfolio-1"></section>
+      </div>
+
+      <div class="poker-results">
+        <section class="card">
+          <div class="card-head"><h2>Payoff matrix</h2><span class="sub">Player 1's expected payoff per hand · Player 2 receives the negative</span></div>
+          <div class="matrix-wrap"><table id="poker-matrix" class="pmatrix"></table></div>
+          <p id="poker-matrix-hint" class="hint"></p>
+        </section>
+        <section class="card">
+          <div class="card-head"><h2>Reward distribution</h2><span class="sub">Player 1's payoff for one hand</span></div>
+          <div id="poker-dist"></div>
+          <canvas id="poker-chart" class="dist-chart"></canvas>
+        </section>
+        <section class="card tree-card" id="poker-tree-card">
+          <div class="card-head"><h2>Game tree</h2><span class="sub">The selected pair in extensive form: who acts, with which probability, and where hands end</span></div>
+          <div id="poker-tree-bar" class="tree-bar"></div>
+          <p id="poker-tree-path" class="tree-path" aria-live="polite"></p>
+          <div class="tree-wrap"><svg id="poker-tree" class="tree-svg" role="group" aria-label="Game tree"></svg></div>
+          <div class="tree-legend">
+            <span><i class="lg-dot chance"></i>Chance</span>
+            <span><i class="lg-dot p1"></i>Player 1 to act (card held)</span>
+            <span><i class="lg-dot p2"></i>Player 2 to act (card held)</span>
+            <span><i class="lg-pill">+2</i>Player 1's payoff and how often the hand ends there</span>
+            <span><i class="lg-line"></i>Width: probability of reaching the node</span>
+            <span><i class="lg-dash"></i>Never reached</span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="src/fatal.js?v=11"></script>
+  <script src="src/engine.js?v=11"></script>
+  <script src="src/analysis.js?v=11"></script>
+  <script src="src/presets.js?v=11"></script>
+  <script src="src/charts.js?v=11"></script>
+  <script src="src/app.js?v=11"></script>
+  <script src="src/poker.js?v=11"></script>
+  <script src="src/poker-app.js?v=11"></script>
+</body>
+</html>

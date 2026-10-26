@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "name": "Deterministic vs mixed rewards — EXP3, binarized",
+  "description": "EXP3 with the horizon-tuned γ and Bernoulli-binarized rewards against the independent S2/S3 mixture.",
+  "game": {
+    "rows": [
+      "A",
+      "B"
+    ],
+    "cols": [
+      "S1",
+      "S2",
+      "S3"
+    ],
+    "payoff": [
+      [
+        0.55,
+        1,
+        0
+      ],
+      [
+        0.45,
+        0,
+        1
+      ]
+    ]
+  },
+  "players": [
+    {
+      "kind": "exp3",
+      "action": 0,
+      "mixture": [],
+      "pool": {
+        "strategies": [],
+        "weights": []
+      },
+      "feedback": "reward-only",
+      "binarize": true,
+      "seed": null,
+      "ucb": {
+        "c": 2,
+        "initOrder": "random"
+      },
+      "ucbv": {
+        "zeta": 1.2,
+        "c": 1,
+        "initOrder": "random"
+      },
+      "exp3": {
+        "gamma": null,
+        "initialWeights": null
+      },
+      "hedge": {
+        "eta": null,
+        "initialWeights": null
+      },
+      "thompson": {
+        "alpha": 1,
+        "beta": 1
+      }
+    },
+    {
+      "kind": "mixed",
+      "action": 0,
+      "mixture": [
+        0,
+        0.55,
+        0.45
+      ],
+      "pool": {
+        "strategies": [],
+        "weights": []
+      },
+      "feedback": "reward-only",
+      "binarize": false,
+      "seed": null,
+      "ucb": {
+        "c": 2,
+        "initOrder": "random"
+      },
+      "ucbv": {
+        "zeta": 1.2,
+        "c": 1,
+        "initOrder": "random"
+      },
+      "exp3": {
+        "gamma": null,
+        "initialWeights": null
+      },
+      "hedge": {
+        "eta": null,
+        "initialWeights": null
+      },
+      "thompson": {
+        "alpha": 1,
+        "beta": 1
+      }
+    }
+  ],
+  "sim": {
+    "horizon": 1000,
+    "repetitions": 50,
+    "seed": 2024,
+    "switchRound": 250,
+    "epsilon": 0.05,
+    "rollingWindow": 50,
+    "deployment": "configured"
+  }
+}
