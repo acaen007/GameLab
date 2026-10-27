@@ -286,8 +286,56 @@
     return root;
   }
 
+  // ------------------------------------------------- opponent inference ----
+  /** What Player 1 sees once a hand ends: Player 2's card stays hidden ("?") unless it reached showdown. */
+  const observationKey = (leaf) => (leaf.end === "showdown" ? leaf.id : `${leaf.id[0]}?${leaf.id.slice(2)}`);
+
+  /**
+   * Probability of every observation for strategies[0] vs strategies[1], as Map key -> {prob, base}.
+   * `base` leaves out Player 2's action probabilities, so prob / base is the probability that Player 2
+   * acts as observed, averaged over the cards it could hold when the hand ended in a fold.
+   */
+  function observationModel(game, strategies) {
+    const out = new Map();
+    const walk = (n, base) => {
+      const b = n.edge && n.edge.type === "action" && n.edge.player === 1 ? base : base * n.p;
+      if (n.kind !== "terminal") { for (const c of n.children) walk(c, b); return; }
+      const key = observationKey(n), o = out.get(key) || { prob: 0, base: 0 };
+      o.prob += n.reach;
+      o.base += b;
+      out.set(key, o);
+    };
+    walk(gameTree(game, strategies), 1);
+    return out;
+  }
+
+  /** Plays one hand of a game tree at random; returns the nodes from the root to the terminal reached. */
+  function sampleHand(root, rand) {
+    const path = [root];
+    for (let n = root; n.children.length;) {
+      let u = rand(), pick = null;
+      for (const c of n.children) {
+        if (!(c.p > 0)) continue;
+        pick = c;
+        u -= c.p;
+        if (u < 0) break;
+      }
+      n = pick;
+      path.push(n);
+    }
+    return path;
+  }
+
+  /** Bayes' rule over Player 2's models (observation models): posterior ∝ prior × P(Player 2's actions | model). */
+  function updateBelief(prior, models, key) {
+    const likelihoods = models.map((m) => { const o = m.get(key); return o && o.base > 0 ? o.prob / o.base : 0; });
+    const w = prior.map((p, j) => p * likelihoods[j]), total = w.reduce((a, b) => a + b, 0);
+    return { likelihoods, posterior: total > 0 ? w.map((x) => x / total) : prior.slice() };
+  }
+
   return {
     RANKS, GAMES, PARAM_LABELS, TEMPLATES, ALPHA_MAX, paramHelp, templatesFor, makeStrategy, normalizeStrategy,
     kuhnNash, nashAlpha, alphaText, nashName, deals, evaluate, payoffMatrix, gameTree,
+    observationKey, observationModel, sampleHand, updateBelief,
   };
 });

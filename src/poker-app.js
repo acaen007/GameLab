@@ -14,7 +14,7 @@
     leduc: [["uniform", "tight", "maniac"], ["uniform", "station", "tight"]],
   };
 
-  const state = { game: "normal", data: {}, open: [null, null], dist: null, tree: { open: {}, hideZero: false } };
+  const state = { game: "normal", data: {}, open: [null, null], dist: null, tree: { open: {}, hideZero: false }, infer: null };
 
   function el(tag, props = {}, ...children) {
     const n = document.createElement(tag);
@@ -339,12 +339,16 @@
       $("poker-dist").replaceChildren(el("p", { class: "hint first", text: "Add at least one strategy to each portfolio." }));
       $("poker-chart").hidden = true;
       $("poker-tree-card").hidden = true;
+      $("poker-infer-card").hidden = true;
       state.dist = null;
       return;
     }
     clampSelection(d);
     renderMatrix(d);
     renderDistribution(d);
+    syncInference(d);
+    $("poker-infer-card").hidden = false;
+    renderInference(d);
     $("poker-tree-card").hidden = false;
     renderTree(d);
   }
@@ -501,7 +505,8 @@
     const X = (it) => T.pad + T.r + it.level * T.col;
     const Y = (it) => T.pad + it.y * T.row + T.row / 2;
     const width = T.pad * 2 + T.r + depth * T.col + T.tail, height = T.pad * 2 + rows * T.row;
-    const links = [], nodes = [], linkEls = new Map(), nodeEls = new Map(), infosets = new Map();
+    const links = [], nodes = [], plays = [], linkEls = new Map(), nodeEls = new Map(), infosets = new Map();
+    const played = state.infer && state.infer.last ? new Set(state.infer.last.path.map((n) => n.id)) : null;
     const infoKey = (n) => (n.kind === "decision" ? `${n.player}:${n.card}:${n.id.slice(2)}` : null);
 
     for (const it of items) {
@@ -519,11 +524,13 @@
             svg("tspan", { class: "tl-p", dx: 5 }, e.type === "action" ? probText(n.p) : chanceText(n.p))));
         links.push([zero ? 0 : n.reach, link]);
         linkEls.set(n.id, link);
+        if (played && played.has(n.id)) plays.push(svg("path", { d: shape, class: "tplay" }));
       }
 
       const collapsed = n.kind !== "terminal" && !it.open;
       const kind = n.kind === "terminal" ? "term" : n.kind === "chance" ? "chance" : `p${n.player + 1}`;
-      const g = svg("g", { class: `tnode ${kind}${zero ? " zero" : ""}${collapsed ? " collapsed" : ""}`, transform: `translate(${x} ${y})`, "data-id": n.id });
+      const mark = `${zero ? " zero" : ""}${collapsed ? " collapsed" : ""}${played && played.has(n.id) ? " played" : ""}`;
+      const g = svg("g", { class: `tnode ${kind}${mark}`, transform: `translate(${x} ${y})`, "data-id": n.id });
       if (n.kind === "terminal") {
         const tone = n.payoff > 0 ? "pos" : n.payoff < 0 ? "neg" : "tie";
         g.append(
@@ -604,7 +611,7 @@
     svgEl.setAttribute("height", height);
     svgEl.setAttribute("viewBox", `0 0 ${width} ${height}`);
     svgEl.classList.remove("tracing");
-    svgEl.replaceChildren(svg("g", {}, links.map((l) => l[1])), svg("g", {}, nodes));
+    svgEl.replaceChildren(svg("g", { class: "tplays" }, plays), svg("g", {}, links.map((l) => l[1])), svg("g", {}, nodes));
   }
 
   function nodeTip(n) {
@@ -614,6 +621,138 @@
     }
     if (n.kind === "chance") return `${n.edge ? "Chance deals the board card" : "Chance deals the private cards"}, ${reach}`;
     return `Player ${n.player + 1} to act holding ${n.card}${n.board ? ` (board ${n.board})` : ""}, ${reach}`;
+  }
+
+  // --------------------------------------------------- opponent inference ----
+  // Player 1 keeps playing its selected strategy against the selected Player 2 strategy, which it does not know,
+  // and after every hand applies Bayes' rule to a belief over Player 2's whole portfolio.
+  const PALETTE = C.PALETTE;
+  const likeText = (v) => (v <= 0 ? "0" : v >= 0.001 ? probText(v) : v.toExponential(1));
+
+  function syncInference(d) {
+    const [A, B] = d.portfolios, [si, sj] = d.selected;
+    const sig = JSON.stringify([state.game, si, sj, A[si].probs, B.map((s) => s.probs)]);
+    if (state.infer && state.infer.sig === sig) return;
+    const prior = B.map(() => 1 / B.length);
+    state.infer = { sig, tree: null, models: null, belief: prior, history: [prior], hands: 0, showdowns: 0, net: 0, last: null };
+  }
+
+  function playHands(count) {
+    const d = data(), inf = state.infer, game = state.game, [A, B] = d.portfolios, [si, sj] = d.selected;
+    if (!inf.models) {
+      inf.tree = PK.gameTree(game, [A[si], B[sj]]);
+      inf.models = B.map((s) => PK.observationModel(game, [A[si], s]));
+    }
+    for (let t = 0; t < count; t++) {
+      const path = PK.sampleHand(inf.tree, Math.random), leaf = path[path.length - 1];
+      const step = PK.updateBelief(inf.belief, inf.models, PK.observationKey(leaf));
+      inf.last = { path, leaf, prior: inf.belief, likelihoods: step.likelihoods };
+      inf.belief = step.posterior;
+      inf.history.push(step.posterior);
+      inf.hands += 1;
+      inf.net += leaf.payoff;
+      if (leaf.end === "showdown") inf.showdowns += 1;
+    }
+    const open = state.tree.open[game];
+    if (open) for (const n of inf.last.path) if (n.kind !== "terminal") open.add(n.id);
+    renderInference(d);
+    renderTree(d);
+  }
+
+  function resetInference() {
+    const d = data();
+    state.infer = null;
+    syncInference(d);
+    renderInference(d);
+    renderTree(d);
+  }
+
+  function renderInference(d) {
+    const [A, B] = d.portfolios, [si, sj] = d.selected, inf = state.infer, last = inf.last;
+    $("poker-infer-pair").replaceChildren(
+      el("span", { class: "badge p1", text: String(si + 1) }), el("span", { class: "pair-name", text: A[si].name, title: A[si].name }),
+      el("span", { class: "vs", text: "vs" }),
+      el("span", { class: "badge p2", text: String(sj + 1) }), el("span", { class: "pair-name", text: B[sj].name, title: B[sj].name }),
+      el("span", { class: "pair-note", text: "hidden from Player 1" }));
+
+    const hand = $("poker-infer-hand");
+    if (!last) {
+      hand.classList.remove("active");
+      hand.replaceChildren("No hands played yet. Belief starts uniform over Player 2's portfolio.");
+      $("poker-infer-note").textContent = "Each hand is dealt and played at random by the selected pair. Player 1 sees its own card, every action, the board and, only at showdown, Player 2's card.";
+    } else {
+      hand.classList.add("active");
+      hand.replaceChildren(...handSteps(inf.hands, last.path));
+      const shown = last.leaf.end === "showdown", card = last.path[1].edge.cards[1];
+      $("poker-infer-note").textContent = shown
+        ? `Showdown: Player 2's ${card} is revealed, so each model's likelihood is the probability it gives to Player 2's actions holding ${card}.`
+        : "Player 2's card is not revealed after a fold, so each model's likelihood averages over the cards Player 2 could hold.";
+    }
+
+    const head = el("tr", {},
+      el("th", { text: "Player 2 model" }),
+      el("th", { class: "num", text: "Likelihood", title: "Probability the model gives to Player 2's actions in the last hand" }),
+      el("th", { text: "Belief" }));
+    const rows = B.map((s, j) => {
+      const now = inf.belief[j], before = last ? last.prior[j] : now, color = PALETTE[j % PALETTE.length];
+      const bar = svg("svg", { class: "pbar", viewBox: "0 0 100 10", preserveAspectRatio: "none", "aria-hidden": "true" },
+        svg("rect", { x: 0, y: 0, width: 100, height: 10, class: "pbar-bg" }),
+        svg("rect", { x: 0, y: 0, width: (now * 100).toFixed(3), height: 10, fill: color }),
+        last && Math.abs(before - now) >= 5e-4 ? svg("line", { x1: before * 100, x2: before * 100, y1: 0, y2: 10, class: "pbar-prev", "vector-effect": "non-scaling-stroke" }) : null);
+      return el("tr", { class: now <= 0 ? "out" : null },
+        el("td", {}, el("div", { class: "model" },
+          svg("svg", { class: "swatch", viewBox: "0 0 10 10", "aria-hidden": "true" }, svg("circle", { cx: 5, cy: 5, r: 5, fill: color })),
+          el("span", { class: "badge p2", text: String(j + 1) }),
+          el("span", { class: "model-name", text: s.name, title: s.name }),
+          j === sj ? el("span", { class: "true-tag", text: "true", title: "The strategy Player 2 is actually playing" }) : null)),
+        el("td", { class: "num", text: last ? likeText(last.likelihoods[j]) : "–" }),
+        el("td", { class: "belief-cell", title: last ? `${pct(before)} before the last hand` : "Prior" },
+          el("div", { class: "pbar-row" }, bar, el("span", { class: "pbar-val", text: pct(now) }))));
+    });
+    $("poker-belief").replaceChildren(el("thead", {}, head), el("tbody", {}, ...rows));
+
+    const stats = $("poker-infer-stats");
+    if (!inf.hands) stats.replaceChildren();
+    else {
+      stats.replaceChildren(
+        el("b", { text: `${inf.hands} hand${inf.hands === 1 ? "" : "s"}` }),
+        " · showdowns ", el("b", { text: `${inf.showdowns} (${pct(inf.showdowns / inf.hands)})` }),
+        " · Player 1 net ", el("b", { text: `${chips(inf.net)} chips` }),
+        `, ${signed(inf.net / inf.hands)} per hand (expected ${signed(state.dist ? state.dist.mean : 0)})`);
+    }
+    drawInferChart();
+  }
+
+  /** The last hand as Player 1 saw it: Player 2's card is shown only at showdown. */
+  function handSteps(index, path) {
+    const parts = [el("span", { class: "step end", text: `Hand ${index}:` })];
+    const leaf = path[path.length - 1], shown = leaf.end === "showdown";
+    const step = (cls, ...kids) => { if (parts.length > 1) parts.push(el("span", { class: "arrow", text: "→" })); parts.push(el("span", { class: `step ${cls}` }, ...kids)); };
+    for (const n of path.slice(1)) {
+      const e = n.edge;
+      if (e.type === "deal") {
+        step("chance", "Deal ", el("span", { class: "c1", text: e.cards[0] }), " · ",
+          shown ? el("span", { class: "c2", text: e.cards[1] }) : el("span", { class: "c2 hidden-card", text: "?", title: `Player 2 held ${e.cards[1]} (not revealed)` }));
+      } else if (e.type === "board") step("chance", `Board ${e.card}`);
+      else step(`p${e.player + 1}`, el("span", { class: "who", text: who(e.player) }), ` ${e.action.toLowerCase()}`);
+    }
+    const res = leaf.payoff > 0 ? `Player 1 wins ${leaf.payoff}` : leaf.payoff < 0 ? `Player 2 wins ${-leaf.payoff}` : "Split pot";
+    step("end", `${shown ? "Showdown" : `${who(leaf.folder)} folded`}: ${res}`);
+    return parts;
+  }
+
+  function drawInferChart() {
+    const inf = state.infer, canvas = $("poker-infer-chart");
+    if (!inf || $("view-poker").hidden || $("poker-infer-card").hidden) return;
+    const [, B] = data().portfolios, sj = data().selected[1];
+    const xs = inf.history.map((_, t) => t);
+    C.draw(canvas, {
+      title: "Belief over Player 2's portfolio",
+      xLabel: "Hands played",
+      yLabel: "Posterior probability",
+      series: B.map((s, j) => ({ label: j === sj ? `${s.name} (true)` : s.name, color: PALETTE[j % PALETTE.length], width: j === sj ? 3 : 2, xs, ys: inf.history.map((b) => b[j]) })),
+      yMin: 0, yMax: 1, xMin: 0, xMax: Math.max(10, inf.hands),
+    });
   }
 
   // ----------------------------------------------------------------- init ----
@@ -629,6 +768,10 @@
     window.addEventListener("hashchange", () => setGame(location.hash.slice(1)));
     let timer = 0;
     new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(drawChart, 60); }).observe($("poker-chart"));
+    let inferTimer = 0;
+    new ResizeObserver(() => { clearTimeout(inferTimer); inferTimer = setTimeout(drawInferChart, 60); }).observe($("poker-infer-chart"));
+    document.querySelectorAll("#poker-infer-card [data-hands]").forEach((b) => b.addEventListener("click", () => playHands(Number(b.dataset.hands))));
+    $("poker-infer-reset").addEventListener("click", resetInference);
     const tree = $("poker-tree");
     tree.addEventListener("focusout", (e) => { if (!tree.contains(e.relatedTarget) && tree.onmouseleave) tree.onmouseleave(); });
     const initial = location.hash.slice(1);

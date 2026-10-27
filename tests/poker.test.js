@@ -155,6 +155,58 @@ test("game tree: probabilities are consistent and its leaves reproduce the exact
   }
 });
 
+test("inference: observation likelihoods are exact, also when Player 2's card stays hidden", () => {
+  for (const [game, seed] of [["kuhn", 21], ["leduc", 22]]) {
+    const s1 = randomStrategy(game, seed), s2 = randomStrategy(game, seed + 100);
+    const model = PK.observationModel(game, [s1, s2]);
+    close([...model.values()].reduce((a, o) => a + o.prob, 0), 1, 1e-12, `${game}: total probability`);
+    // At showdown the likelihood is the product of Player 2's action probabilities along the path.
+    const visit = (n, p2) => {
+      if (n.kind !== "terminal") { for (const c of n.children) visit(c, c.edge.type === "action" && c.edge.player === 1 ? p2 * c.p : p2); return; }
+      if (n.end !== "showdown") return;
+      const o = model.get(PK.observationKey(n));
+      if (o.base > 0) close(o.prob / o.base, p2, 1e-12, `${game} ${n.id}`);
+      else assert.equal(o.prob, 0, "Player 1 never plays into this hand");
+    };
+    visit(PK.gameTree(game, [s1, s2]), 1);
+  }
+  // After a fold, Player 2's card is averaged out: P(c2 | c1) is 1/2 each in Kuhn, 1/5 or 2/5 in Leduc.
+  const q = randomStrategy("kuhn", 31), kuhn = PK.observationModel("kuhn", [strat("kuhn", "uniform"), q]);
+  const k = kuhn.get("K?bf");
+  close(k.prob / k.base, ((1 - q.probs[0].Q.call) + (1 - q.probs[0].J.call)) / 2);
+  const j = kuhn.get("J?kbf");
+  close(j.prob / j.base, (q.probs[0].Q.bet + q.probs[0].K.bet) / 2);
+  const r = randomStrategy("leduc", 32), leduc = PK.observationModel("leduc", [strat("leduc", "uniform"), r]);
+  const fold = (c) => (1 - r.probs[0][c].raise) * (1 - r.probs[0][c].call);
+  const l = leduc.get("K?bf");
+  close(l.prob / l.base, fold("K") / 5 + (2 * fold("Q")) / 5 + (2 * fold("J")) / 5);
+});
+
+test("inference: the posterior concentrates on the true opponent", () => {
+  let s = 12345;
+  const rand = () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
+  for (const [game, hands] of [["kuhn", 1500], ["leduc", 600]]) {
+    const p1 = strat(game, "uniform");
+    const candidates = PK.templatesFor(game).map((t) => strat(game, t.key, 1));
+    const models = candidates.map((c) => PK.observationModel(game, [p1, c]));
+    candidates.forEach((truth, t) => {
+      const tree = PK.gameTree(game, [p1, truth]);
+      let belief = candidates.map(() => 1 / candidates.length);
+      for (let h = 0; h < hands; h++) {
+        const path = PK.sampleHand(tree, rand), leaf = path[path.length - 1];
+        assert.equal(leaf.kind, "terminal");
+        const step = PK.updateBelief(belief, models, PK.observationKey(leaf));
+        assert.ok(step.likelihoods[t] > 0, "the true opponent always explains the hand");
+        close(step.posterior.reduce((a, b) => a + b, 0), 1, 1e-9);
+        belief = step.posterior;
+      }
+      assert.ok(belief[t] > 0.99, `${game}: ${candidates[t].name} has posterior ${belief[t]}`);
+    });
+  }
+  const none = PK.updateBelief([0.5, 0.5], [new Map(), new Map()], "K?bf");
+  assert.deepEqual(none.posterior, [0.5, 0.5]);
+});
+
 test("templates, normalization and payoff matrix", () => {
   for (const game of ["kuhn", "leduc"]) {
     for (const t of PK.templatesFor(game)) {

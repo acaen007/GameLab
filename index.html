@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'">
   <title>Game Lab</title>
-  <link rel="stylesheet" href="styles.css?v=11">
+  <link rel="stylesheet" href="styles.css?v=12">
 </head>
 <body>
   <header class="topbar">
@@ -223,6 +223,27 @@
           <div id="poker-dist"></div>
           <canvas id="poker-chart" class="dist-chart"></canvas>
         </section>
+        <section class="card infer-card" id="poker-infer-card">
+          <div class="card-head"><h2>Opponent inference</h2><span class="sub">Player 1 knows Player 2's portfolio but not which strategy it faces, and updates its belief with Bayes' rule after every hand</span></div>
+          <div class="tree-bar">
+            <div id="poker-infer-pair" class="dist-pair"></div>
+            <div class="tree-tools">
+              <button type="button" class="small primary" data-hands="1">Play 1 hand</button>
+              <button type="button" class="small" data-hands="10">Play 10</button>
+              <button type="button" class="small" data-hands="100">Play 100</button>
+              <button type="button" class="small ghost" id="poker-infer-reset">Reset</button>
+            </div>
+          </div>
+          <div class="infer-grid">
+            <div>
+              <p id="poker-infer-hand" class="tree-path" aria-live="polite"></p>
+              <p id="poker-infer-note" class="hint"></p>
+              <table id="poker-belief" class="belief"></table>
+              <p id="poker-infer-stats" class="ends"></p>
+            </div>
+            <canvas id="poker-infer-chart" class="infer-chart"></canvas>
+          </div>
+        </section>
         <section class="card tree-card" id="poker-tree-card">
           <div class="card-head"><h2>Game tree</h2><span class="sub">The selected pair in extensive form: who acts, with which probability, and where hands end</span></div>
           <div id="poker-tree-bar" class="tree-bar"></div>
@@ -235,19 +256,20 @@
             <span><i class="lg-pill">+2</i>Player 1's payoff and how often the hand ends there</span>
             <span><i class="lg-line"></i>Width: probability of reaching the node</span>
             <span><i class="lg-dash"></i>Never reached</span>
+            <span><i class="lg-play"></i>Last hand played in Opponent inference</span>
           </div>
         </section>
       </div>
     </div>
   </main>
 
-  <script src="src/fatal.js?v=11"></script>
-  <script src="src/engine.js?v=11"></script>
-  <script src="src/analysis.js?v=11"></script>
-  <script src="src/presets.js?v=11"></script>
-  <script src="src/charts.js?v=11"></script>
-  <script src="src/app.js?v=11"></script>
-  <script src="src/poker.js?v=11"></script>
-  <script src="src/poker-app.js?v=11"></script>
+  <script src="src/fatal.js?v=12"></script>
+  <script src="src/engine.js?v=12"></script>
+  <script src="src/analysis.js?v=12"></script>
+  <script src="src/presets.js?v=12"></script>
+  <script src="src/charts.js?v=12"></script>
+  <script src="src/app.js?v=12"></script>
+  <script src="src/poker.js?v=12"></script>
+  <script src="src/poker-app.js?v=12"></script>
 </body>
 </html>
